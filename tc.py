@@ -178,13 +178,9 @@ class CycleState(enum.Enum):
 def read_actual_temp(port):
     return read_property(port, Parameter.TEMP_CONTROL_C)
 
-def cool_to(port, temp):
+def ramp_to(port, temp):
     write_property(port, Parameter.TEMP_SET_C, temp)
-    write_property(port, Parameter.CONTROL_MODE, CONTROL_MODE_COOL)
 
-def warm_to(port, temp):
-    write_property(port, Parameter.TEMP_SET_C, temp)
-    write_property(port, Parameter.CONTROL_MODE, CONTROL_MODE_HEAT)
 
 # Some customers have noticed an improved communication from the controller
 # with a small (one to four) millisecond delay between characters this delay is
