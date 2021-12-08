@@ -105,7 +105,7 @@ def write_property(port, prop, value):
         if prop.scaling is None:
             return send_command(port, prop.write_cmd, value)
         else:
-            return send_scaled_command(port, prop.read_cmd, value, prop.scaling)
+            return send_scaled_command(port, prop.write_cmd, value, prop.scaling)
     except Exception as e:
         print('failed to write property:', e)
         return None
