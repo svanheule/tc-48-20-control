@@ -44,7 +44,14 @@ class Parameter(int, enum.Enum):
     TEMP_CONTROL_C = (None, 0x01, 10)
     TEMP_AUX_C = (None, 0x04, 10)
     TEMP_SET_C = (0x1c, 0x50, 10)
-    CONTROL_MODE = (0x21, 0x55, None)
+
+    BW_PROPORTIONAL = (0x1d, 0x51, 10.) # Stored in 0.1 degrees
+    GAIN_INTEGRAL = (0x1e, 0x52, 100.) # Stored in 0.01 repeats/minute
+    GAIN_DIFFERENTIAL = (0x1f, 0x53, 100.) # Stored in 0.01 minutes
+
+    #CONTROL_MODE = (0x21, 0x55, None)
+    OUTPUT_ENABLE = (0x30, 0x64, None)
+    OUTPUT_POWER = (None, 0x02, 511)
 
 
 def calc_checksum(data_bytes):
