@@ -189,10 +189,7 @@ def ramp_to(port, temp):
 # 0.004 for 4 ms) to configure this delay.
 try:
     with serial.Serial(args.port, 115200, timeout=0.1, inter_byte_timeout=None) as port:
-        try:
-            if read_property(port, Parameter.MODEL_CODE) != 9613:
-                raise Exception('Invalid controller')
-        except:
+        if read_property(port, Parameter.MODEL_CODE) != 9613:
             raise Exception('Invalid controller')
     
         status = read_property(port, Parameter.STATUS_ALARM)
