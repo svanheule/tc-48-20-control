@@ -134,7 +134,7 @@ def parse_time(arg):
         raise ValueError('invalid time argument')
 
     return float(m.group(1)) * unit_map[m.group(3)]
-    
+
 
 parser = argparse.ArgumentParser(description='Freezing plate controller')
 parser.add_argument('--port', '-p', required=True, type=str, help='Serial port')
@@ -252,9 +252,9 @@ try:
     with serial.Serial(args.port, 115200, timeout=0.1, inter_byte_timeout=None) as port:
         if read_property(port, Parameter.MODEL_CODE) != 9613:
             raise Exception('Invalid controller')
-    
+
         status = read_property(port, Parameter.STATUS_ALARM)
-    
+
         if args.sub_command == 'status':
             status_bits = [
                 'HIGH ALARM 1',
