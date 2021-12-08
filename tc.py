@@ -150,13 +150,13 @@ parser_set.add_argument('--integral', '-i', type=float, help='control loop integ
 parser_set.add_argument('--differential', '-d', type=float, help='control loop differential gain (min)')
 
 parser_cycle = subparsers.add_parser('cycle',
-        help='Cycle between two setpoints A and B. The secondary sensor is required to monitor the environmental temparture.')
+        help='Cycle between two setpoints A and B. If present, the auxiliary temperature sensor is used to monitor the environmental temperature.')
 parser_cycle.add_argument('--cycles', '-n', type=int, help='Number of temperature cycles. Cycles indefinitely if omitted')
 parser_cycle.add_argument('--temp-a', required=True, type=float, help='Temperature A, in degrees Celcius')
 parser_cycle.add_argument('--temp-b', required=True, type=float, help='Temperature B, in degrees Celcius')
-parser_cycle.add_argument('--time-a', required=True, type=parse_time,
+parser_cycle.add_argument('--time-a', default=0.0, type=parse_time,
         help='Time at temperature A, in seconds. Alternative formats are 1.5h, 25m, 600s')
-parser_cycle.add_argument('--time-b', required=True, type=parse_time,
+parser_cycle.add_argument('--time-b', default=0.0, type=parse_time,
         help='Time at temperature B, in seconds. Alternative formats are 1.5h, 25m, 600s')
 
 args = parser.parse_args()
@@ -170,6 +170,67 @@ class CycleState(enum.Enum):
     COLD = 1
     HEATING = 2
     WARM = 3
+
+def perform_cycles(port, args):
+    STABLE_BAND = 0.2
+
+    if args.temp_a > args.temp_b:
+        temp_warm, temp_cold = args.temp_a, args.temp_b
+        time_warm, time_cold = args.time_a, args.time_b
+        cycle_state = CycleState.HEATING
+    else:
+        temp_warm, temp_cold = args.temp_b, args.temp_a
+        time_warm, time_cold = args.time_b, args.time_a
+        cycle_state = CycleState.COOLING
+
+    ramp_to(port, args.temp_a)
+    temp_target = args.temp_a
+
+    time_zero = time.time()
+    time_start = time.time()
+    time_stop = time_start
+
+    remaining = args.cycles
+    while remaining is None or remaining > 0:
+        temp_current = read_actual_temp(port)
+        time_now = time.time()
+
+        if cycle_state in {CycleState.COOLING, CycleState.HEATING}:
+            if abs(temp_current - temp_target) <= STABLE_BAND:
+                time_start = time_now
+                if cycle_state is CycleState.COOLING:
+                    temperature_point = 'cold'
+                    cycle_state = CycleState.COLD
+                    time_stop = time_start + time_cold
+                else:
+                    temperature_point = 'warm'
+                    cycle_state = CycleState.WARM
+                    time_stop = time_start + time_warm
+
+                print('[{:>8d}] Reached {} temperature {}'.format(
+                        int(time_now - time_zero), temperature_point, temp_target))
+
+        elif cycle_state in {CycleState.COLD, CycleState.WARM}:
+            if time.time() >= time_stop:
+                if cycle_state is CycleState.COLD:
+                    cycle_state = CycleState.HEATING
+                    temp_target = temp_warm
+                else:
+                    cycle_state = CycleSate.COOLING
+                    temp_target = temp_cold
+
+                # We're done if the next state would be the initial state
+                if remaining is not None and temp_target == args.temp_a:
+                    remaining -= 1
+
+                # Only start ramping if we're not done yet
+                if remaining is None or remaining > 0:
+                    ramp_to(port, temp_target)
+
+        if remaining is None or remaining > 0:
+            print('[{:>8d}] Current temperature: {} °C'.format(int(time_now - time_zero), temp_current), end='\r')
+            time.sleep(1)
+
 
 ##
 # Commonly used calls
@@ -238,33 +299,14 @@ try:
 
         elif args.sub_command == 'cycle':
             print('Cycle {} times: {} s @ {} °C, {} s @ {} °C'.format(
-                args.cycles, args.time_warm, args.temp_warm, args.time_cold, args.temp_cold)
+                args.cycles, args.time_a, args.temp_a, args.time_b, args.temp_b)
             )
-            remaining = args.cycles
-            # TODO determine if we need to start by cooling or heating
-            if read_actual_temp > args.temp_a:
-                cycle_state = CycleState.COOLING
-                cool_to(args.temp_a)
-            else:
-                cycle_state = CycleState.HEATING
-                warm_to(args.temp_a)
 
-            if args.temp_a > args.temp_b:
-                temp_warm, temp_cold = args.temp_a, args.temp_b
-            else:
-                temp_warm, temp_cold = args.temp_b, args.temp_a
+            try:
+                perform_cycles(port, args)
+            except KeyboardInterrupt:
+                print()
 
-            while remaining is None or remaining > 0:
-                if cycle_state is CycleState.COOLING:
-                    # TODO are we there yet?
-                elif cycle_state is CycleState.COLD:
-                    # TODO are we done yet? Decrement cyles if TEMP_B
-                elif cycle_state is CycleState.HEATING:
-                    # TODO are we there yet?
-                elif cycle_state is CycleState.WARM:
-                    # TODO are we done yet? Decrement cycles if TEMP_B
-
-                time.sleep(2)
 
         else:
             raise Exception('Unsupported sub-command {}'.format(args.sub_command))
