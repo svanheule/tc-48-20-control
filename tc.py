@@ -143,8 +143,11 @@ subparsers = parser.add_subparsers(dest='sub_command', help='available sub-comma
 
 subparsers.add_parser('status', help='read controller status')
 
-parser_set = subparsers.add_parser('set', help='set current setpoint')
-parser_set.add_argument('--temp', '-t', required=True, type=float, help='Setpoint in degrees Celcius')
+parser_set = subparsers.add_parser('set', help='modify controller settings')
+parser_set.add_argument('--temp', '-t', type=float, help='setpoint in degrees Celcius')
+parser_set.add_argument('--proportional', '-p', type=float, help='control loop proportional bandwitdh (°C)')
+parser_set.add_argument('--integral', '-i', type=float, help='control loop integral gain (repeats/min)')
+parser_set.add_argument('--differential', '-d', type=float, help='control loop differential gain (min)')
 
 parser_cycle = subparsers.add_parser('cycle',
         help='Cycle between two setpoints A and B. The secondary sensor is required to monitor the environmental temparture.')
@@ -221,12 +224,23 @@ try:
                     print(status_bits[i])
     
         elif args.sub_command == 'set':
-            value = write_property(port, Parameter.TEMP_SET_C, args.temp)
-            if value is None:
-                print('Failed to set temperature setpoint to {:.1f} °C'.format(args.temp))
-            else:
-                print('Temperature setpoint set to {:.1f} °C'.format(args.temp))
-    
+            properties = {
+                'temperature setpoint' : (args.temp, Parameter.TEMP_SET_C),
+                'proportional bandwidth' : (args.proportional, Parameter.BW_PROPORTIONAL),
+                'integral gain' : (args.integral, Parameter.GAIN_INTEGRAL),
+                'differential gain' : (args.differential, Parameter.GAIN_DIFFERENTIAL),
+            }
+
+            for desc in properties:
+                value, param = properties[desc]
+
+                if value is not None:
+                    if write_property(port, param, value) is not None:
+                        print('{} set to {}'.format(desc, value))
+                    else:
+                        print('failed to set {} to {}'.format(desc, value))
+
+
         elif args.sub_command == 'cycle':
             print('Cycle {} times: {} s @ {} °C, {} s @ {} °C'.format(
                 args.cycles, args.time_warm, args.temp_warm, args.time_cold, args.temp_cold)
