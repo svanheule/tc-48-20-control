@@ -176,7 +176,7 @@ class CycleState(enum.Enum):
 ##
 
 def read_actual_temp(port):
-    return read_property(port, Parameter.TEMP_SENSOR_C)
+    return read_property(port, Parameter.TEMP_CONTROL_C)
 
 def cool_to(port, temp):
     write_property(port, Parameter.TEMP_SET_C, temp)
@@ -201,15 +201,7 @@ try:
     
         status = read_property(port, Parameter.STATUS_ALARM)
     
-        if args.sub_command == 'get':
-            print('Temperature set point: {:.1f} °C'.format(read_property(port, TEMP_SET_C)))
-            primary = read_actual_temp(port)
-            print('Current temperature: {:.1f} °C'.format(primary))
-            if status & STATUS_OPEN_SECONDARY:
-                aux = read_property(port, Parameter.TEMP_AUX_C)
-                print('Current secondary temperature: {:.1f} °C'.format(aux))
-    
-        elif args.sub_command == 'status':
+        if args.sub_command == 'status':
             status_bits = [
                 'HIGH ALARM 1',
                 'LOW ALARM 1',
@@ -219,9 +211,19 @@ try:
                 'OPEN SECONDARY SENSOR',
                 'KEYPAD VALUE CHANGE',
             ]
-            for i in range(len(status_bits)):
-                if status & (1 << i):
-                    print(status_bits[i])
+            print('status flags: ' + ', '.join(status_bits[b] for b in range(len(status_bits)) if (status & (1 << b))))
+
+            print('temperature set point: {:.1f} °C'.format(read_property(port, Parameter.TEMP_SET_C)))
+            primary = read_actual_temp(port)
+            print('current temperature: {:.1f} °C'.format(primary))
+            if not status & STATUS_OPEN_SECONDARY:
+                aux = read_property(port, Parameter.TEMP_AUX_C)
+                print('current secondary temperature: {:.1f} °C'.format(aux))
+
+            if read_property(port, Parameter.OUTPUT_ENABLE) == 1:
+                print('output power fraction: {:2.1f} %'.format(100 * read_property(port, Parameter.OUTPUT_POWER)))
+            else:
+                print('output disabled')
     
         elif args.sub_command == 'set':
             properties = {
