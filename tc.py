@@ -243,11 +243,13 @@ def ramp_to(port, temp):
     write_property(port, Parameter.TEMP_SET_C, temp)
 
 
-# Some customers have noticed an improved communication from the controller
-# with a small (one to four) millisecond delay between characters this delay is
-# optional, however feel free to attempt it in case of any communication
-# problems. Modify the inter_byte_timeout to a value expressed in seconds (e.g.
-# 0.004 for 4 ms) to configure this delay.
+# From TE example script:
+#    "Some customers have noticed an improved communication from the controller
+#    with a small (one to four) millisecond delay between characters. This
+#    delay is optional, however feel free to attempt it in case of any
+#    communication problems."
+# Modify the inter_byte_timeout to a value expressed in seconds (e.g. 0.004 for
+# 4 ms) to configure this delay.
 try:
     with serial.Serial(args.port, 115200, timeout=0.1, inter_byte_timeout=None) as port:
         if read_property(port, Parameter.MODEL_CODE) != 9613:
