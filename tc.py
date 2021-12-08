@@ -135,7 +135,6 @@ parser.add_argument('--port', '-p', required=True, type=str, help='Serial port')
 subparsers = parser.add_subparsers(dest='sub_command', help='available sub-commands', required=True)
 
 subparsers.add_parser('status', help='read controller status')
-subparsers.add_parser('get', help='get current setpoint and sensor values')
 
 parser_set = subparsers.add_parser('set', help='set current setpoint')
 parser_set.add_argument('--temp', '-t', required=True, type=float, help='Setpoint in degrees Celcius')
