@@ -190,6 +190,7 @@ def perform_cycles(port, args):
     time_start = time.time()
     time_stop = time_start
 
+    cycles_done = 0
     remaining = args.cycles
     while remaining is None or remaining > 0:
         temp_current = read_actual_temp(port)
@@ -220,8 +221,11 @@ def perform_cycles(port, args):
                     temp_target = temp_cold
 
                 # We're done if the next state would be the initial state
-                if remaining is not None and temp_target == args.temp_a:
-                    remaining -= 1
+                if temp_target == args.temp_a:
+                    cycles_done += 1
+                    print('[{:>8d}] Cycle {} finished'.format(cycles_dones))
+                    if remaining is not None:
+                        remaining -= 1
 
                 # Only start ramping if we're not done yet
                 if remaining is None or remaining > 0:
