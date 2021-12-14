@@ -217,7 +217,7 @@ def perform_cycles(port, args):
                     cycle_state = CycleState.HEATING
                     temp_target = temp_warm
                 else:
-                    cycle_state = CycleSate.COOLING
+                    cycle_state = CycleState.COOLING
                     temp_target = temp_cold
 
                 # We're done if the next state would be the initial state
