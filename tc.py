@@ -9,11 +9,16 @@
 import argparse
 import binascii
 import enum
+import os
 import re
 import serial
 import struct
 import sys
 import time
+
+# Ensure we can use escape sequences
+if os.name == 'nt':
+    os.system('color')
 
 ##
 # Base command formatting and parsing
@@ -195,7 +200,7 @@ def perform_cycles(port, args):
             end = '\n'
         else:
             end = '\r'
-        print(('[{:>8d}] ' + msg).format(int(time.time() - time_zero), *args), end=end)
+        print(('\x1b[K[{:>8d}] ' + msg).format(int(time.time() - time_zero), *args), end=end)
 
 
     cycles_done = 0
