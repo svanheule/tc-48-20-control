@@ -190,6 +190,14 @@ def perform_cycles(port, args):
     time_start = time.time()
     time_stop = time_start
 
+    def log_cycle(msg, *args, newline=True):
+        if newline:
+            end = '\n'
+        else:
+            end = '\r'
+        print(('[{:>8d}] ' + msg).format(int(time.time() - time_zero), *args), end=end)
+
+
     cycles_done = 0
     remaining = args.cycles
     while remaining is None or remaining > 0:
@@ -208,8 +216,7 @@ def perform_cycles(port, args):
                     cycle_state = CycleState.WARM
                     time_stop = time_start + time_warm
 
-                print('[{:>8d}] Reached {} temperature {}'.format(
-                        int(time_now - time_zero), temperature_point, temp_target))
+                log_cycle('Reached {} temperature {} °C', temperature_point, temp_target)
 
         elif cycle_state in {CycleState.COLD, CycleState.WARM}:
             if time.time() >= time_stop:
@@ -223,7 +230,7 @@ def perform_cycles(port, args):
                 # We're done if the next state would be the initial state
                 if temp_target == args.temp_a:
                     cycles_done += 1
-                    print('[{:>8d}] Cycle {} finished'.format(cycles_done))
+                    log_cycle('Cycle {} finished', cycles_done)
                     if remaining is not None:
                         remaining -= 1
 
@@ -232,7 +239,7 @@ def perform_cycles(port, args):
                     ramp_to(port, temp_target)
 
         if remaining is None or remaining > 0:
-            print('[{:>8d}] Current temperature: {} °C'.format(int(time_now - time_zero), temp_current), end='\r')
+            log_cycle('Current temperature: {} °C', temp_current, newline=False)
             time.sleep(1)
 
 
