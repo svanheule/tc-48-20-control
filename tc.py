@@ -223,7 +223,7 @@ def perform_cycles(port, args):
                 # We're done if the next state would be the initial state
                 if temp_target == args.temp_a:
                     cycles_done += 1
-                    print('[{:>8d}] Cycle {} finished'.format(cycles_dones))
+                    print('[{:>8d}] Cycle {} finished'.format(cycles_done))
                     if remaining is not None:
                         remaining -= 1
 
