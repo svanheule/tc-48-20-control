@@ -245,7 +245,7 @@ def perform_cycles(port, args):
 
         if remaining is None or remaining > 0:
             log_cycle('Current temperature: {} °C, Output power: {:2.1f}%',
-                    temp_current, read_actual_power(port), newline=False)
+                    temp_current, 100 * read_actual_power(port), newline=False)
             time.sleep(1)
 
 
