@@ -243,6 +243,9 @@ def perform_cycles(port, args):
 def read_actual_temp(port):
     return read_property(port, Parameter.TEMP_CONTROL_C)
 
+def read_actual_power(port):
+    return read_property(port, Parameter.OUTPUT_POWER)
+
 def ramp_to(port, temp):
     write_property(port, Parameter.TEMP_SET_C, temp)
 
@@ -281,7 +284,7 @@ try:
                 print('current secondary temperature: {:.1f} °C'.format(aux))
 
             if read_property(port, Parameter.OUTPUT_ENABLE) == 1:
-                print('output power fraction: {:2.1f} %'.format(100 * read_property(port, Parameter.OUTPUT_POWER)))
+                print('output power fraction: {:2.1f} %'.format(100 * read_actual_power(port)))
             else:
                 print('output disabled')
     
