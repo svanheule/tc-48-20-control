@@ -255,8 +255,6 @@ try:
         if read_property(port, Parameter.MODEL_CODE) != 9613:
             raise Exception('Invalid controller')
 
-        status = read_property(port, Parameter.STATUS_ALARM)
-
         if args.sub_command == 'status':
             status_bits = [
                 'HIGH ALARM 1',
@@ -267,6 +265,8 @@ try:
                 'OPEN SECONDARY SENSOR',
                 'KEYPAD VALUE CHANGE',
             ]
+
+            status = read_property(port, Parameter.STATUS_ALARM)
             print('status flags: ' + ', '.join(status_bits[b] for b in range(len(status_bits)) if (status & (1 << b))))
 
             print('temperature set point: {:.1f} °C'.format(read_property(port, Parameter.TEMP_SET_C)))
