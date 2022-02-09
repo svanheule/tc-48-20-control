@@ -156,6 +156,7 @@ parser_set.add_argument('--differential', '-d', type=float, help='control loop d
 
 parser_cycle = subparsers.add_parser('cycle',
         help='Cycle between two setpoints A and B. If present, the auxiliary temperature sensor is used to monitor the environmental temperature.')
+parser_cycle.add_argument('--dry-run', action='store_true')
 parser_cycle.add_argument('--cycles', '-n', type=int, help='Number of temperature cycles. Cycles indefinitely if omitted')
 parser_cycle.add_argument('cycle_points', nargs='+', help='List of cycle points formated as [duration]@[temperature].'
         + ' Duration is specified in seconds, or with h/m/s units (e.g. 1.5h, 25m, 600s). Temperature is exprssed in degrees Celcius.')
@@ -170,14 +171,15 @@ class CycleState(enum.Enum):
     RAMPING = 0
     STABLE = 1
 
-def perform_cycles(port, n_cycles, cycle_points):
+def perform_cycles(port, n_cycles, cycle_points, dry_run=False):
     STABLE_BAND = 0.2
 
     cycle_state = CycleState.RAMPING
 
 
     temp_target = cycle_points[0][1]
-    ramp_to(port, temp_target)
+    if not dry_run:
+        ramp_to(port, temp_target)
 
     time_zero = time.time()
     time_start = time.time()
@@ -195,14 +197,20 @@ def perform_cycles(port, n_cycles, cycle_points):
     cycle_index = 0
     remaining = args.cycles
     while remaining is None or remaining > 0:
-        temp_current = read_actual_temp(port)
+        if not dry_run:
+            temp_current = read_actual_temp(port)
+        else:
+            temp_current = temp_target
         time_now = time.time()
 
         if cycle_state is CycleState.RAMPING:
             if abs(temp_current - temp_target) <= STABLE_BAND:
                 time_start = time_now
                 cycle_state = CycleState.STABLE
-                time_stop = time_start + cycle_points[cycle_index][0]
+                if not dry_run:
+                    time_stop = time_start + cycle_points[cycle_index][0]
+                else:
+                    time_stop = time_start
 
                 log_cycle('Reached cycle point {} temperature {} °C', cycle_index, temp_target)
 
@@ -220,12 +228,17 @@ def perform_cycles(port, n_cycles, cycle_points):
                         remaining -= 1
 
                 # Only start ramping if we're not done yet
-                if remaining is None or remaining > 0:
+                if remaining is None or remaining > 0 and not dry_run:
                     ramp_to(port, temp_target)
 
         if remaining is None or remaining > 0:
+            if not dry_run:
+                output_power = read_actual_power(port)
+            else:
+                output_power = -1
+
             log_cycle('Current temperature: {} °C, Output power: {:2.1f}%',
-                    temp_current, 100 * read_actual_power(port), newline=False)
+                    temp_current, 100 * output_power, newline=False)
             time.sleep(1)
 
 
@@ -313,7 +326,7 @@ try:
                     args.cycles, ', '.join('{} s @ {} °C'.format(dur, temp) for dur,temp in cycle_points))
                 )
 
-                perform_cycles(port, args.cycles, cycle_points)
+                perform_cycles(port, args.cycles, cycle_points, args.dry_run)
             except KeyboardInterrupt:
                 print()
 
