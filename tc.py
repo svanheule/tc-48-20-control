@@ -157,12 +157,8 @@ parser_set.add_argument('--differential', '-d', type=float, help='control loop d
 parser_cycle = subparsers.add_parser('cycle',
         help='Cycle between two setpoints A and B. If present, the auxiliary temperature sensor is used to monitor the environmental temperature.')
 parser_cycle.add_argument('--cycles', '-n', type=int, help='Number of temperature cycles. Cycles indefinitely if omitted')
-parser_cycle.add_argument('--temp-a', required=True, type=float, help='Temperature A, in degrees Celcius')
-parser_cycle.add_argument('--temp-b', required=True, type=float, help='Temperature B, in degrees Celcius')
-parser_cycle.add_argument('--time-a', default=0.0, type=parse_time,
-        help='Time at temperature A, in seconds. Alternative formats are 1.5h, 25m, 600s')
-parser_cycle.add_argument('--time-b', default=0.0, type=parse_time,
-        help='Time at temperature B, in seconds. Alternative formats are 1.5h, 25m, 600s')
+parser_cycle.add_argument('cycle_points', nargs='+', help='List of cycle points formated as [duration]@[temperature].'
+        + ' Duration is specified in seconds, or with h/m/s units (e.g. 1.5h, 25m, 600s). Temperature is exprssed in degrees Celcius.')
 
 args = parser.parse_args()
 
@@ -171,25 +167,17 @@ STATUS_OPEN_SECONDARY = 1 << 5
 
 # Cycle state machine
 class CycleState(enum.Enum):
-    COOLING = 0
-    COLD = 1
-    HEATING = 2
-    WARM = 3
+    RAMPING = 0
+    STABLE = 1
 
-def perform_cycles(port, args):
+def perform_cycles(port, n_cycles, cycle_points):
     STABLE_BAND = 0.2
 
-    if args.temp_a > args.temp_b:
-        temp_warm, temp_cold = args.temp_a, args.temp_b
-        time_warm, time_cold = args.time_a, args.time_b
-        cycle_state = CycleState.HEATING
-    else:
-        temp_warm, temp_cold = args.temp_b, args.temp_a
-        time_warm, time_cold = args.time_b, args.time_a
-        cycle_state = CycleState.COOLING
+    cycle_state = CycleState.RAMPING
 
-    ramp_to(port, args.temp_a)
-    temp_target = args.temp_a
+
+    temp_target = cycle_points[0][1]
+    ramp_to(port, temp_target)
 
     time_zero = time.time()
     time_start = time.time()
@@ -204,36 +192,28 @@ def perform_cycles(port, args):
 
 
     cycles_done = 0
+    cycle_index = 0
     remaining = args.cycles
     while remaining is None or remaining > 0:
         temp_current = read_actual_temp(port)
         time_now = time.time()
 
-        if cycle_state in {CycleState.COOLING, CycleState.HEATING}:
+        if cycle_state is CycleState.RAMPING:
             if abs(temp_current - temp_target) <= STABLE_BAND:
                 time_start = time_now
-                if cycle_state is CycleState.COOLING:
-                    temperature_point = 'cold'
-                    cycle_state = CycleState.COLD
-                    time_stop = time_start + time_cold
-                else:
-                    temperature_point = 'warm'
-                    cycle_state = CycleState.WARM
-                    time_stop = time_start + time_warm
+                cycle_state = CycleState.STABLE
+                time_stop = time_start + cycle_points[cycle_index][0]
 
-                log_cycle('Reached {} temperature {} °C', temperature_point, temp_target)
+                log_cycle('Reached cycle point {} temperature {} °C', cycle_index, temp_target)
 
-        elif cycle_state in {CycleState.COLD, CycleState.WARM}:
+        elif cycle_state is CycleState.STABLE:
             if time.time() >= time_stop:
-                if cycle_state is CycleState.COLD:
-                    cycle_state = CycleState.HEATING
-                    temp_target = temp_warm
-                else:
-                    cycle_state = CycleState.COOLING
-                    temp_target = temp_cold
+                cycle_index = (cycle_index + 1) % len(cycle_points)
+                cycle_state = CycleState.RAMPING
+                temp_target = cycle_points[cycle_index][1]
 
                 # We're done if the next state would be the initial state
-                if temp_target == args.temp_a:
+                if cycle_index == 0:
                     cycles_done += 1
                     log_cycle('Cycle {} finished', cycles_done)
                     if remaining is not None:
@@ -320,12 +300,20 @@ try:
 
 
         elif args.sub_command == 'cycle':
-            print('Cycle {} times: {} s @ {} °C, {} s @ {} °C'.format(
-                args.cycles, args.time_a, args.temp_a, args.time_b, args.temp_b)
-            )
-
             try:
-                perform_cycles(port, args)
+                cycle_points = list()
+                for point in args.cycle_points:
+                    if '@' in point:
+                        duration,temperature = point.split('@', 1)
+                        cycle_points.append((parse_time(duration), float(temperature)))
+                    else:
+                        raise ValueError('invalid cycle point specifier {}'.format(point))
+
+                print('Cycle {} times: {}'.format(
+                    args.cycles, ', '.join('{} s @ {} °C'.format(dur, temp) for dur,temp in cycle_points))
+                )
+
+                perform_cycles(port, args.cycles, cycle_points)
             except KeyboardInterrupt:
                 print()
 
